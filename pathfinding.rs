@@ -1,11 +1,13 @@
-use std::collections::HashMap;
+use std::fmt;
+use std::cmp::Eq;
+use std::hash::Hash;
+use std::collections::{DList, HashMap, HashSet};
 
 pub mod graph {
-    use std::fmt;
     use std::cmp::Eq;
     use std::hash::Hash;
     use std::iter::FromIterator;
-    use std::collections::{DList, HashMap, HashSet};
+    use std::collections::HashMap;
     
     pub trait WeightedGraph<'a, T, I: Iterator<(uint, &'a T)>> {
         fn neighbours(&'a self, node: &T) -> I;
@@ -56,29 +58,44 @@ pub mod graph {
             (self.nodes.len(), Some(self.nodes.len()))
         }
     }
+}
 
-    pub fn breadth_first<'a, T: Eq + Hash + fmt::Show,
-                         I: Iterator<(uint, &'a T)>>(graph: &'a WeightedGraph<'a, T, I>, start: &'a T) {
-        let mut frontier = DList::new();
-        let mut visited = HashSet::new();
+/// Search exhaustively over the graph, starting at the given node.
+///
+/// If `goal` is specified, stop searching if it is reached.
+pub fn breadth_first_search<'a, T: Eq + Hash + fmt::Show, I: Iterator<(uint, &'a T)>>
+    (graph: &'a graph::WeightedGraph<'a, T, I>, start: &'a T, goal: Option<&'a T>) {
+    
+    let mut frontier = DList::new();
+    let mut visited = HashSet::new();
+    
+    frontier.push(start);
+    visited.insert(start);
+
+    loop {
+        // Break the loop when we run out of new nodes.
+        let current = match frontier.pop() {
+            Some(node) => node,
+            None => break
+        };
         
-        frontier.push(start);
-        visited.insert(start);
+        println!("    Visiting: {}", current);
 
-        while !frontier.is_empty() {
-            // We know that frontier is not empty.
-            let current = frontier.pop().unwrap();
-            println!("Visiting: {}", current);
+        // If `goal` is not None, check if we've reached it and break out
+        // early if we have.
+        if goal.map_or(false, |g| g.eq(current)) {
+            println!("    Goal reached.");
+            break;
+        }
 
-            for (_, next) in graph.neighbours(current) {
-                // Ensure that we only visit each connected node once by
-                // keeping track of previously visited nodes.
-                if !visited.contains(&next) {
-                    visited.insert(next);
-                    frontier.push(next);
-                } else {
-                    continue;
-                }
+        for (_, next) in graph.neighbours(current) {
+            // Ensure that we only visit each connected node once by
+            // keeping track of previously visited nodes.
+            if visited.contains(&next) {
+                continue;
+            } else {
+                visited.insert(next);
+                frontier.push(next);
             }
         }
     }
@@ -93,5 +110,10 @@ fn main() {
     map.insert("E", vec!("B"));
 
     let g = graph::SimpleGraph::new(map);
-    graph::breadth_first(&g, &"A");
+    
+    println!("Searching over the whole graph:");
+    breadth_first_search(&g, &"A", None);
+
+    println!("Searching over the graph with goal 'D':");
+    breadth_first_search(&g, &"A", Some(&"D"));
 }
